@@ -635,7 +635,9 @@ func AcquireDistributedLock(
 	mu := concurrency.NewMutex(se, key)
 	maxRetryCnt := 10
 	err = util2.RunWithRetry(maxRetryCnt, util2.RetryInterval, func() (bool, error) {
-		err = mu.Lock(ctx)
+		lockCtx, cancel := context.WithTimeout(ctx, time.Duration(int64(ttlInSec))*time.Second)
+		err = mu.Lock(lockCtx)
+		cancel()
 		if err != nil {
 			return true, err
 		}
@@ -653,7 +655,9 @@ func AcquireDistributedLock(
 	}
 	logutil.Logger(ctx).Info("acquire distributed lock success", zap.String("key", key))
 	return func() {
-		err = mu.Unlock(ctx)
+		lockCtx, cancel := context.WithTimeout(ctx, time.Duration(int64(ttlInSec))*time.Second)
+		err = mu.Unlock(lockCtx)
+		cancel()
 		if err != nil {
 			logutil.Logger(ctx).Warn("release distributed lock error", zap.Error(err), zap.String("key", key))
 		} else {
